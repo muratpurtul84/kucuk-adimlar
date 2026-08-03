@@ -11,7 +11,7 @@ const fileName=s=>String(s||'dosya').replace(/[^a-z0-9._-]+/gi,'_');
 const fmtDate=v=>new Intl.DateTimeFormat('tr-TR',{dateStyle:'long',timeStyle:'short'}).format(new Date(v));
 const isLocked=e=>e.type==='mektup'&&e.unlockDate&&new Date(e.unlockDate+'T23:59:59')>new Date();
 
-async function init(){await ensureProfiles();await applyProfile();await applySecurity();bind();await renderAll();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js');}
+async function init(){try{await ensureProfiles();await applyProfile();await applySecurity();bind();await renderAll();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js');}finally{document.body.classList.remove('booting');}}
 function bind(){
  $$('.tabs button').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
  ['quickAddBtn','heroAddBtn','emptyAddBtn'].forEach(id=>$(id).onclick=()=>openEntry());
@@ -43,7 +43,7 @@ async function switchProfile(id){if(!id||id===activeProfileId)return;activeProfi
 async function createProfile(){const name=prompt('Yeni çocuğun adı:');if(!name?.trim())return;const p={id:crypto.randomUUID(),name:name.trim(),birth:'',journalName:`${name.trim()} — Küçük Adımlar`,createdAt:new Date().toISOString()};await DB.putProfile(p);activeProfileId=p.id;await DB.setSetting('activeProfileId',p.id);await renderProfileSelector();await applyProfile();await renderAll();await renderSettings();toast('Yeni profil oluşturuldu.');}
 async function deleteCurrentProfile(){const ps=await DB.profiles();if(ps.length<=1)return alert('En az bir çocuk profili bulunmalı.');const p=await DB.profile(activeProfileId);if(!confirm(`${p?.name||'Bu profil'} ve bu profile ait tüm anılar, medya ve albümler silinsin mi?`))return;if(!confirm('Bu işlem geri alınamaz. Önce tam ZIP yedeği aldığından emin misin?'))return;await DB.deleteProfile(activeProfileId);const left=await DB.profiles();activeProfileId=left[0].id;await DB.setSetting('activeProfileId',activeProfileId);await renderProfileSelector();await applyProfile();await renderAll();await renderSettings();toast('Profil silindi.');}
 
-async function applySecurity(){const pin=await DB.setting('pinHash','');if(pin)$('lockScreen').hidden=false;}
+async function applySecurity(){const pin=await DB.setting('pinHash','');$('lockScreen').hidden=!pin;}
 async function hash(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
 async function unlock(){const h=await hash($('unlockPin').value);if(h===await DB.setting('pinHash','')){$('lockScreen').hidden=true;$('unlockPin').value='';$('lockError').textContent='';}else $('lockError').textContent='PIN yanlış.';}
 async function setPin(){const p=$('pinInput').value.trim();if(!/^\d{4,8}$/.test(p))return alert('PIN 4-8 rakam olmalı.');await DB.setSetting('pinHash',await hash(p));$('pinInput').value='';toast('PIN ayarlandı.');}

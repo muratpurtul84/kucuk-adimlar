@@ -4,3 +4,7 @@
 
 /* HTML hidden niteligini tum ozel display kurallarindan ustun tutar. */
 [hidden]{display:none!important;}
+
+/* PIN durumu IndexedDB’den okunana kadar günlük arayüzünü gösterme. */
+body.booting .app-header,body.booting .tabs,body.booting main{visibility:hidden}
+body.booting{overflow:hidden}
