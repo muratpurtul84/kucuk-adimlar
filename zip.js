@@ -1,4 +1,7 @@
-// Minimal ZIP (store/no compression) writer and reader for offline backups.
+// Küçük Adımlar ZIP writer/reader.
+// Writer uses STORE (method 0) for broad compatibility.
+// Reader supports STORE (0) and DEFLATE (8), including ZIPs produced by
+// Android, Drive, Windows, Linux and common archive tools.
 const te = new TextEncoder();
 const td = new TextDecoder();
 
@@ -26,6 +29,7 @@ function dosDateTime(d = new Date()) {
   const time=(d.getHours()<<11)|(d.getMinutes()<<5)|Math.floor(d.getSeconds()/2);
   return {date,time};
 }
+
 export async function createZip(files) {
   const local=[]; const central=[]; let offset=0;
   for (const file of files) {
@@ -41,15 +45,83 @@ export async function createZip(files) {
   const end=concat([u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(centralBytes.length),u32(offset),u16(0)]);
   return new Blob([...local,centralBytes,end],{type:'application/zip'});
 }
+
+function findEocd(bytes, view) {
+  // EOCD can have a comment of up to 65535 bytes.
+  const min = Math.max(0, bytes.length - 22 - 0xffff);
+  for (let o = bytes.length - 22; o >= min; o--) {
+    if (view.getUint32(o, true) === 0x06054b50) return o;
+  }
+  throw new Error('Geçerli bir ZIP son kaydı bulunamadı. Dosya eksik veya bozuk olabilir.');
+}
+
+async function inflateRaw(compressed) {
+  if (typeof DecompressionStream === 'undefined') {
+    throw new Error('Bu cihaz Deflate ZIP açmayı desteklemiyor. Chrome veya Edge tarayıcısını güncelleyin.');
+  }
+  const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
 export async function readZip(blob) {
-  const bytes=new Uint8Array(await blob.arrayBuffer()); const view=new DataView(bytes.buffer); const files=new Map(); let o=0;
-  while (o+4<=bytes.length && view.getUint32(o,true)===0x04034b50) {
-    const method=view.getUint16(o+8,true); if(method!==0) throw new Error('Bu ZIP sıkıştırma biçimi desteklenmiyor. Küçük Adımlar yedeğini seçin.');
-    const size=view.getUint32(o+18,true); const nameLen=view.getUint16(o+26,true); const extraLen=view.getUint16(o+28,true);
-    const name=td.decode(bytes.slice(o+30,o+30+nameLen)); const start=o+30+nameLen+extraLen; const data=bytes.slice(start,start+size);
-    files.set(name,data); o=start+size;
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  if (bytes.length < 22) throw new Error('ZIP dosyası boş veya eksik.');
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const eocd = findEocd(bytes, view);
+  const entryCount = view.getUint16(eocd + 10, true);
+  const centralOffset = view.getUint32(eocd + 16, true);
+  const files = new Map();
+  let o = centralOffset;
+
+  for (let i = 0; i < entryCount; i++) {
+    if (o + 46 > bytes.length || view.getUint32(o, true) !== 0x02014b50) {
+      throw new Error('ZIP merkez dizini okunamadı. Dosya bozuk veya desteklenmeyen ZIP64 biçiminde olabilir.');
+    }
+    const flags = view.getUint16(o + 8, true);
+    const method = view.getUint16(o + 10, true);
+    const expectedCrc = view.getUint32(o + 16, true);
+    const compressedSize = view.getUint32(o + 20, true);
+    const uncompressedSize = view.getUint32(o + 24, true);
+    const nameLen = view.getUint16(o + 28, true);
+    const extraLen = view.getUint16(o + 30, true);
+    const commentLen = view.getUint16(o + 32, true);
+    const localOffset = view.getUint32(o + 42, true);
+    const utf8 = (flags & 0x0800) !== 0;
+    const nameBytes = bytes.slice(o + 46, o + 46 + nameLen);
+    const name = utf8 ? td.decode(nameBytes) : td.decode(nameBytes);
+
+    if (localOffset + 30 > bytes.length || view.getUint32(localOffset, true) !== 0x04034b50) {
+      throw new Error(`ZIP içindeki yerel kayıt okunamadı: ${name}`);
+    }
+    const localNameLen = view.getUint16(localOffset + 26, true);
+    const localExtraLen = view.getUint16(localOffset + 28, true);
+    const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+    const dataEnd = dataStart + compressedSize;
+    if (dataEnd > bytes.length) throw new Error(`ZIP içindeki dosya eksik: ${name}`);
+
+    // Directory entries need no payload.
+    if (name.endsWith('/')) {
+      o += 46 + nameLen + extraLen + commentLen;
+      continue;
+    }
+
+    const compressed = bytes.slice(dataStart, dataEnd);
+    let data;
+    if (method === 0) data = compressed;
+    else if (method === 8) data = await inflateRaw(compressed);
+    else throw new Error(`ZIP sıkıştırma yöntemi desteklenmiyor (method ${method}): ${name}`);
+
+    if (data.length !== uncompressedSize) {
+      throw new Error(`ZIP dosya boyutu doğrulanamadı: ${name}`);
+    }
+    if (crc32(data) !== expectedCrc) {
+      throw new Error(`ZIP bütünlük kontrolü başarısız: ${name}`);
+    }
+    files.set(name, data);
+    o += 46 + nameLen + extraLen + commentLen;
   }
   return files;
 }
+
 export const encodeText = (s) => te.encode(s);
 export const decodeText = (b) => td.decode(b);

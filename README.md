@@ -1,7 +1,7 @@
-## v1.2.2
+## v1.2.3
 - PIN durumu okunmadan ana ekranın kısa süre görünmesi engellendi.
 - PIN yoksa kilit ekranı kesin olarak gizlenir.
-- Service Worker önbelleği v1.2.2 olarak yenilendi.
+- Service Worker önbelleği v1.2.3 olarak yenilendi.
 
 # Küçük Adımlar v1.2.1 — Çoklu Çocuk Profili
 
