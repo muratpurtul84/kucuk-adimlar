@@ -1,4 +1,4 @@
-# Küçük Adımlar v1.2 — Çoklu Çocuk Profili
+# Küçük Adımlar v1.2.1 — Çoklu Çocuk Profili
 
 Bu sürümde birden fazla çocuk için ayrı profiller desteklenir.
 
