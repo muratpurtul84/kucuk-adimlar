@@ -1,22 +1,11 @@
-# Küçük Adımlar v1.1 — Güvenli Tam Yedek
+# Küçük Adımlar v1.2 — Çoklu Çocuk Profili
 
-Fotoğraf, kısa video, ses, söz, ilkler, albümler, konum, zaman kapsülü ve anı kitabı içeren çevrimdışı çocukluk günlüğü PWA'sı.
+Bu sürümde birden fazla çocuk için ayrı profiller desteklenir.
 
-## v1.1 yedekleme özellikleri
-- Tam ZIP: metin + fotoğraf + video + ses + albüm + ayarlar
-- Hafif ZIP: video hariç tüm veriler
-- Manifest ve SHA-256 medya doğrulaması
-- Tamamen değiştir, birleştir veya yalnızca eksikleri ekle
-- Tamamen değiştirmeden önce otomatik güvenlik yedeği
-- Son yedek tarihi ve yeni kayıt sayısı uyarısı
-- Android paylaşım menüsü üzerinden Drive'a gönderme desteği
-- Eski v1.0 `backup.json` yedeklerini okuyabilme
+- Her profil için ayrı zaman çizelgesi, takvim, sözler, ilkler ve albümler
+- Üst menüden hızlı profil değiştirme
+- Eski tek profil verilerini otomatik olarak ilk profile bağlama
+- Tam ZIP yedeğinde bütün profilleri, kayıtları ve medyayı birlikte taşıma
+- Profil silerken o profile ait kayıt ve medyayı birlikte temizleme
 
-## Çalıştırma
-Klasörde terminal açın:
-```bash
-python3 -m http.server 8080
-```
-Tarayıcı: `http://localhost:8080`
-
-Telefon kamerası, mikrofon, konum ve PWA kurulumu için GitHub Pages gibi HTTPS yayın kullanın. Günlük verileri GitHub'a yüklenmez; cihazın IndexedDB alanında kalır.
+Çalıştırma: `python3 -m http.server 8080`
